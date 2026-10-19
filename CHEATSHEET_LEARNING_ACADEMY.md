@@ -231,3 +231,185 @@ if (!response.ok) {
 - Network failure → Promise rejects.
 - HTTP 4xx/5xx → Promise usually resolves.
 - `response.ok` is true for successful 2xx responses.
+
+### Semester 5 — Lesson 3: React async data fetching and server state
+
+#### Local state vs server state
+
+- Local UI state is owned by the frontend.
+- Server state is owned by the backend; the frontend only holds a local snapshot/cache.
+- Server state can become stale independently of React.
+
+#### Fetching with `useEffect`
+
+```tsx
+useEffect(() => {
+  fetch("/api/heroes");
+}, []);
+```
+
+- An empty dependency array means the effect does not depend on changing props/state.
+- In this case, it is used to fetch data after mount.
+
+#### Fetch lifecycle
+
+Typical concerns:
+
+```text
+loading
+data
+error
+HTTP status
+cancellation
+race conditions
+```
+
+#### `fetch()` behavior
+
+- Network failure → Promise rejects.
+- HTTP `4xx` / `5xx` → Promise usually resolves.
+- Check `response.ok` explicitly.
+
+```tsx
+if (!response.ok) {
+  throw new Error(`HTTP ${response.status}`);
+}
+```
+
+#### Race conditions
+
+Request order does not guarantee response order.
+
+```text
+request A starts
+request B starts
+
+B returns first
+A returns later
+
+→ stale A can overwrite newer B
+```
+
+Example:
+
+```text
+search = "art"
+→ request A
+
+search = "arthas"
+→ request B
+
+B returns first
+→ UI shows "arthas"
+
+A returns later
+→ UI incorrectly goes back to "art"
+```
+
+#### `AbortController`
+
+```tsx
+const controller = new AbortController();
+
+fetch(url, {
+  signal: controller.signal,
+});
+```
+
+- Used to cancel stale or no-longer-needed requests.
+- Particularly useful when an effect dependency changes before the previous request finishes.
+
+#### Effect cleanup
+
+```tsx
+return () => {
+  controller.abort();
+};
+```
+
+The cleanup runs:
+
+- before that effect runs again because its dependencies changed;
+- when the component unmounts.
+
+General pattern:
+
+```text
+effect
+→ start / acquire something
+
+cleanup
+→ stop / release it
+```
+
+Examples:
+
+- start request → abort request;
+- register event listener → remove event listener;
+- start timer → clear timer.
+
+#### Abort errors
+
+- Cancelling an old request is expected behavior.
+- An `AbortError` should normally not be shown to the user as a real application failure.
+
+#### Overlapping loading state
+
+This can be subtly wrong:
+
+```tsx
+.finally(() => {
+    setLoading(false);
+});
+```
+
+Example:
+
+```text
+request A starts
+request B starts
+
+A is aborted / finishes
+→ A sets loading = false
+
+B is still running
+→ UI incorrectly says loading = false
+```
+
+Request lifecycle state must therefore be associated carefully with the active request.
+
+#### Derived server data
+
+Prefer:
+
+```tsx
+const visibleHeroes = heroes.filter((hero) => hero.name.includes(search));
+```
+
+over storing another synchronized state.
+
+If a value can be calculated directly from existing state/props, it usually should not become another state variable.
+
+#### Scaling concern
+
+Do not manually reimplement the full server-state lifecycle in every component.
+
+At scale, concerns such as:
+
+- fetching;
+- loading;
+- errors;
+- caching;
+- retries;
+- stale data;
+- refetching;
+- race conditions;
+- cancellation;
+
+are often centralized into:
+
+- custom hooks;
+- an API/data layer;
+- server-state abstractions/libraries.
+
+The low-level mechanics are still important to understand so those abstractions do not become "magic".
