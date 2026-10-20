@@ -413,3 +413,150 @@ are often centralized into:
 - server-state abstractions/libraries.
 
 The low-level mechanics are still important to understand so those abstractions do not become "magic".
+
+### Semester 5 — Lesson 4: Component lifecycle, effects, and cleanup
+
+#### Component lifecycle
+
+```text
+mount
+→ rerender / update
+→ rerender / update
+→ ...
+→ unmount
+```
+
+- Rerender keeps the same component identity and preserves local state.
+- Remount creates a new component identity and resets local state.
+
+#### Effect execution
+
+No dependency array:
+
+```tsx
+useEffect(() => {
+    ...
+});
+```
+
+- Runs after every committed render.
+
+Empty dependency array:
+
+```tsx
+useEffect(() => {
+    ...
+}, []);
+```
+
+- Runs after mount.
+- Does not rerun because of normal state/prop changes.
+- Cleanup runs on unmount.
+
+Dependency array:
+
+```tsx
+useEffect(() => {
+    ...
+}, [roomId]);
+```
+
+- Runs after mount.
+- Runs again when `roomId` changes.
+
+#### Effect cleanup
+
+Cleanup runs:
+
+```text
+before the effect runs again because dependencies changed
+or
+when the component unmounts
+```
+
+General pattern:
+
+```text
+effect
+→ start / register / acquire something
+
+cleanup
+→ stop / unregister / release it
+```
+
+Examples:
+
+```text
+setInterval
+→ clearInterval
+
+addEventListener
+→ removeEventListener
+
+connect WebSocket
+→ disconnect WebSocket
+
+start fetch
+→ abort fetch
+```
+
+#### Dependency change vs remount
+
+Dependency change:
+
+```text
+same component
+→ rerender
+→ cleanup previous effect
+→ run new effect
+→ local state preserved
+```
+
+Key change:
+
+```tsx
+<HeroEditor key={hero.id} />
+```
+
+```text
+old component unmounts
+→ local state discarded
+→ new component mounts
+→ fresh state initialized
+```
+
+#### Stale closures
+
+Functions created during a render capture that render's values.
+
+Example:
+
+```tsx
+useEffect(() => {
+  const interval = setInterval(() => {
+    console.log(count);
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, []);
+```
+
+If the effect was created when:
+
+```text
+count = 0
+```
+
+and never recreated, the callback can keep observing that old snapshot even after `count` changes.
+
+#### Core distinction
+
+```text
+rerender
+≠
+remount
+
+effect cleanup/restart
+≠
+component unmount/remount
+```

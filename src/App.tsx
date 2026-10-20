@@ -4,6 +4,7 @@ import PropsLearning from "./components/PropsLearning.tsx";
 import LiftingStateLearning from "./components/LiftingStateLearning.tsx";
 import FormLearning from "./components/Form/FormLearning.tsx";
 import RaceConditionLearning from "./components/RaceCondition/RaceConditionLearning.tsx";
+import LifecycleLearning from "./components/lyfecycle/LifecycleLearning.tsx";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <LiftingStateLearning />
       <FormLearning />
       <RaceConditionLearning />
+      <LifecycleLearning />
     </div>
   );
 }
