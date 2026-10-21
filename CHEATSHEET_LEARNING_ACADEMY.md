@@ -560,3 +560,190 @@ effect cleanup/restart
 ≠
 component unmount/remount
 ```
+
+### Semester 5 — Lesson 5: React routing and navigation
+
+#### React Router role
+
+React Router maps the current URL to React UI:
+
+```text
+URL
+→ route match
+→ component/page
+```
+
+It also enables client-side SPA navigation without a full document reload.
+
+#### Route parameters
+
+```tsx
+<Route path="/heroes/:heroId" element={<HeroDetailsPage />} />
+```
+
+`:heroId` is a dynamic route parameter.
+
+Examples:
+
+```text
+/heroes/42
+/heroes/99
+```
+
+Inside the component:
+
+```tsx
+const { heroId } = useParams();
+```
+
+Route parameters are typically strings.
+
+#### `<Link>` vs `<a>`
+
+```tsx
+<Link to="/heroes/42">
+```
+
+- Uses React Router.
+- Client-side navigation.
+- No full document reload.
+
+```html
+<a href="/heroes/42"></a>
+```
+
+- Normal browser navigation.
+- Browser requests a new document from the server.
+- React application reloads.
+
+#### Direct navigation and SPA fallback
+
+If the user directly enters:
+
+```text
+https://myapp.com/heroes/42
+```
+
+the request goes first to the web server:
+
+```text
+browser
+→ GET /heroes/42
+→ web server
+```
+
+React Router is not running yet.
+
+For SPA routes, the server usually needs a fallback:
+
+```text
+frontend route
+→ serve index.html
+→ React starts
+→ React Router handles the URL
+```
+
+Without that fallback, the server may return `404`.
+
+#### Route parameter changes
+
+If:
+
+```text
+/heroes/42
+→ /heroes/99
+```
+
+matches the same route component:
+
+```tsx
+<Route path="/heroes/:heroId" ... />
+```
+
+the component does not necessarily remount.
+
+Usually:
+
+```text
+same component stays mounted
+→ rerender
+→ heroId changes
+→ local state preserved
+```
+
+Effects whose dependencies changed may rerun.
+
+#### Route-driven fetching
+
+```tsx
+const { heroId } = useParams();
+
+useEffect(() => {
+  fetch(`/api/heroes/${heroId}`);
+}, [heroId]);
+```
+
+When `heroId` changes:
+
+```text
+component rerenders
+→ effect runs again
+→ new fetch starts
+```
+
+The previous fetch is not automatically cancelled.
+
+Cancellation requires explicit cleanup, for example with `AbortController`.
+
+#### Nested routes and layouts
+
+```tsx
+<Route element={<AppLayout />}>
+  <Route path="/heroes" element={<HeroesPage />} />
+  <Route path="/settings" element={<SettingsPage />} />
+</Route>
+```
+
+`<Outlet />` marks where the matched child route renders:
+
+```tsx
+function AppLayout() {
+  return (
+    <>
+      <Header />
+      <Outlet />
+    </>
+  );
+}
+```
+
+#### Persistent layout state
+
+If the layout remains mounted while child routes change, its local state is preserved.
+
+```text
+AppLayout stays mounted
+→ child route changes
+→ layout state survives
+```
+
+State only survives if the component owning that state also survives.
+
+#### Relative nested routes
+
+```tsx
+<Route path="/heroes">
+  <Route index element={<HeroesPage />} />
+  <Route path=":heroId" element={<HeroDetailsPage />} />
+</Route>
+```
+
+Corresponds to:
+
+```text
+index
+→ /heroes
+
+:heroId
+→ /heroes/:heroId
+```
