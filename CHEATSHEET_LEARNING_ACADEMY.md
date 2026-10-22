@@ -747,3 +747,346 @@ index
 :heroId
 → /heroes/:heroId
 ```
+
+### Semester 5 — Lesson 6: TypeScript for real React applications
+
+#### `type` vs `interface`
+
+Both are compile-time only and disappear at runtime.
+
+```ts
+type Hero = {
+  id: string;
+  name: string;
+};
+```
+
+```ts
+interface Hero {
+  id: string;
+  name: string;
+}
+```
+
+- `interface` is natural for object contracts.
+- `type` is more general-purpose and can also represent unions and aliases.
+- TypeScript uses structural typing: an object does not need to explicitly implement an interface; matching the required shape is enough.
+
+#### Optional vs nullable
+
+```ts
+description?: string;
+```
+
+means:
+
+```ts
+string | undefined;
+```
+
+and the property may be absent.
+
+```ts
+description: string | null;
+```
+
+means the property must exist and be either a string or `null`.
+
+#### Literal unions
+
+```ts
+type HeroStatus = "AVAILABLE" | "IN_MISSION" | "DEAD";
+```
+
+Restricts values at type-checking time.
+
+Invalid assignments produce a TypeScript error, not a runtime exception.
+
+#### Discriminated unions
+
+```ts
+type HeroState =
+  | {
+      status: "AVAILABLE";
+    }
+  | {
+      status: "IN_MISSION";
+      missionId: string;
+    }
+  | {
+      status: "DEAD";
+      deathReason: string;
+    };
+```
+
+`status` is the discriminant.
+
+Checking:
+
+```ts
+if (state.status === "IN_MISSION") {
+    ...
+}
+```
+
+narrows `state` to the corresponding union member.
+
+#### Exhaustiveness with `never`
+
+If every union case is handled, the remaining type can become:
+
+```ts
+never;
+```
+
+This enables exhaustive checks:
+
+```ts
+function assertNever(value: never): never {
+  throw new Error("Unexpected value");
+}
+```
+
+If a new union member is added but not handled, TypeScript can report an error.
+
+#### `any` vs `unknown`
+
+```text
+any
+→ disable type checking
+
+unknown
+→ type is not known yet
+→ must validate/narrow before use
+```
+
+Prefer `unknown` at external boundaries when the runtime shape is not trusted.
+
+#### Type narrowing
+
+TypeScript can reduce a broad type to a more specific type using control flow.
+
+Example:
+
+```ts
+function print(id: string | number) {
+  if (typeof id === "string") {
+    // id is string here
+    console.log(id.toUpperCase());
+  }
+}
+```
+
+Or with a discriminated union:
+
+```ts
+if (state.status === "IN_MISSION") {
+  // state is the IN_MISSION variant here
+}
+```
+
+#### React props typing
+
+```ts
+type HeroCardProps = {
+  hero: Hero;
+  selected: boolean;
+  onSelect: (id: string) => void;
+};
+```
+
+Props define the contract between parent and child.
+
+#### `useState` inference
+
+TypeScript can infer simple state:
+
+```tsx
+const [count, setCount] = useState(0);
+// count: number
+```
+
+But ambiguous initial values often need explicit typing:
+
+```tsx
+const [hero, setHero] = useState<Hero | null>(null);
+```
+
+Without the generic, `useState(null)` may infer only `null`.
+
+#### React event typing
+
+Inline handlers often get contextual typing:
+
+```tsx
+<input onChange={(event) => setSearch(event.target.value)} />
+```
+
+Extracted handlers may need explicit types:
+
+```tsx
+function handleChange(
+    event: React.ChangeEvent<HTMLInputElement>
+) {
+    ...
+}
+```
+
+Form example:
+
+```tsx
+function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+}
+```
+
+#### Prefer inference when obvious
+
+Prefer:
+
+```ts
+const count = 0;
+```
+
+over:
+
+```ts
+const count: number = 0;
+```
+
+Explicit typing is most valuable at boundaries:
+
+- component props
+- function parameters
+- important return types
+- ambiguous state
+- API models / external data
+
+#### TypeScript types do not validate runtime JSON
+
+This:
+
+```ts
+const hero: HeroDto = await response.json();
+```
+
+does not validate or convert the response.
+
+TypeScript types are erased before runtime.
+
+If the backend sends:
+
+```json
+{
+  "level": "10"
+}
+```
+
+but TypeScript expects:
+
+```ts
+level: number;
+```
+
+JavaScript still receives a string.
+
+So:
+
+```ts
+hero.level + 1;
+```
+
+can produce:
+
+```text
+"101"
+```
+
+#### Type assertions
+
+```ts
+const hero = data as HeroDto;
+```
+
+means:
+
+```text
+"Trust me, treat this as HeroDto."
+```
+
+It does not:
+
+- validate
+- convert
+- deserialize
+- transform
+
+#### Runtime validation boundary
+
+Safer external-boundary model:
+
+```ts
+const data: unknown = await response.json();
+```
+
+Then validate before use.
+
+#### Type guards / predicates
+
+```ts
+function isHeroDto(
+    value: unknown
+): value is HeroDto {
+    ...
+}
+```
+
+Two layers:
+
+```text
+function body
+→ performs runtime checks
+
+value is HeroDto
+→ tells TypeScript:
+   if true, narrow value to HeroDto
+```
+
+#### Runtime schema vs TypeScript type
+
+```text
+TypeScript type
+→ compile-time only
+
+runtime schema
+→ exists during execution
+→ can inspect and validate real data
+```
+
+#### Generated API contracts
+
+A common architecture:
+
+```text
+Spring API contract
+→ OpenAPI
+→ generated TypeScript client/types
+→ React
+```
+
+This reduces duplicated DTO definitions and contract drift.
+
+Generated TypeScript types do not automatically imply runtime validation unless the tooling explicitly provides it.
+
+#### DTO vs frontend model
+
+Do not automatically create:
+
+```text
+HeroDto
+→ Hero
+```
+
+as two separate types.
+
+Separate them when the frontend genuinely needs a different model or responsibility.
